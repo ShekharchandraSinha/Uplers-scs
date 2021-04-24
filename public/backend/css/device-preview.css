@@ -1,0 +1,47 @@
+.preview {
+    overflow: hidden;
+}
+.preview .device {
+    position: relative;
+    margin: 0 auto;
+    overflow: hidden;
+}
+.preview .device iframe {
+    transition: all 0.5s ease;
+}
+
+/* Desktop */
+.preview .device.device-desktop {
+    width: 612px;
+}
+
+.preview .device-desktop iframe {
+    width: 1360px !important;
+    height: 800px;
+    transform: scale(0.42);
+}
+
+/* Tablet */
+.preview .device.device-tablet {
+    width: 461px;
+}
+.preview .device-tablet iframe {
+    width: 768px !important;
+    height: 1024px;
+    transform: scale(0.6);
+}
+
+/* Mobile */
+.preview .device.device-mobile {
+    width: 320px;
+}
+.preview .device-mobile iframe {
+    width: 320px;
+    height: 560px;
+}
+
+.preview iframe {
+    margin: 0;
+    border: 0;
+    transform-origin: 0 0;
+}

@@ -1,0 +1,18 @@
+.drag .main {
+    position: relative;
+    border: 5px solid #117a8b;
+    padding: 60px 10px 10px 10px;
+    border-radius: 5px;
+}
+.drag .main::after {
+    content: url('data:image/svg+xml;utf8,<svg width="24" xmlns="http://www.w3.org/2000/svg" height="24" fill="none" stroke="white" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="feather feather-move"><defs/><path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3M2 12h20M12 2v20"/></svg>');
+    position: absolute;
+    z-index: 10;
+    padding: 10px;
+    cursor: move;
+    color: #cccccc;
+    background-color: #117a8b;
+    top: -1px;
+    left: -1px;
+    border-radius: 0 0 5px 0;
+}
