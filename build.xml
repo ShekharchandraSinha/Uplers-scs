@@ -1,0 +1,336 @@
+<?php xml version="1.0" encoding="UTF-8"?>
+
+<project name="YourProject" default="build" basedir=".">
+
+<!-- By default the tools are managed by Composer in ${basedir}/vendor/bin -->
+    <property name="phpdox" value="${basedir}/vendor/bin/phpdox"/>
+    <property name="phpmd" value="${basedir}/vendor/bin/phpmd"/>
+    
+    <target name="build"
+        depends="build-common"/>
+
+    <target name="build clean"
+        depends="clean,build-common"/>
+
+    <target name="build-dox"
+        depends="build-common,phpdox"/>
+
+    <target name="build-dox-clean"
+        depends="clean,build-common,phpdox"/>
+
+    <target name="build-parallel"
+        depends="build-common,tools-parallel" />
+
+    <target name="build-parallel-clean"
+        depends="clean,build-common,tools-parallel" />
+
+    <target name="build-common" depends="lint,prepare,storage-permissions,composer"/>
+
+    <target name="tools-parallel" description="Run tools in parallel">
+        <parallel threadCount="2">
+            <sequential>
+                <antcall target="pdepend" />
+                <antcall target="phpcs-ci" />
+                <antcall target="phpmd-ci" />
+            </sequential>
+            <antcall target="phpcb" />
+            <antcall target="phpcpd" />
+            <antcall target="phpdox" />
+            <antcall target="phploc" />
+        </parallel>
+    </target>
+
+<target name="phpunit" >
+        <exec executable="${phpunit}" resultproperty="result.phpunit" taskname="phpunit">
+            <arg value="--configuration"/>
+            <arg path="${basedir}/build/phpunit.xml"/>
+            <arg path="tests"/>
+	<arg line="--coverage-clover ${basedir}/build/logs/clover.xml
+                --coverage-html ${basedir}/build/logs/
+                ."/>
+        </exec>
+        <logging>
+        <log type="coverage-html" target="build/coverage"/>
+        <log type="coverage-clover" target="build/logs/clover.xml"/>
+        <log type="coverage-crap4j" target="build/logs/crap4j.xml"/>
+        <log type="junit" target="build/logs/junit.xml" logIncompleteSkipped="false"/>
+      </logging>
+        <property name="phpunit.done" value="true"/>
+	</target>
+
+        <property name="phpunit.done" value="true"/>
+	<target name="clean-composer" description="Cleanup composer artifacts">
+    <echo>Cleaning out the composer artifacts</echo>
+    <delete dir="${basedir}/vendor" />
+    <delete file="${basedir}/composer.lock" />
+	<phpunit bootstrap="tests/bootstrap.php" colors="true" >
+   <logging>
+       <log type="junit" target="build/junit.xml" 
+           logIncompleteSkipped="false" title="Test Results"/>
+   </logging>
+
+   ....
+
+ </phpunit>
+</target>
+
+	 <target name="validate-composer-json" depends="clean" unless="validate-composer-json.done" description="Validate composer.json">
+        <exec executable="${basedir}/tools/composer" failonerror="true" taskname="composer">
+            <arg value="validate"/>
+            <arg value="--strict"/>
+            <arg value="${basedir}/composer.json"/>
+        </exec>
+	</target>
+<target name="composer" depends="composer-install" description="Install or update dependencies" />
+
+<!--// Check to see it the vendor folder already exist, if so, then no reason to run //-->
+<target name="composer.check">
+    <condition property="composer.exist">
+        <available file="${basedir}/vendor" type="dir" />
+    </condition>
+</target>
+
+<target name="composer-install" depends="composer.check" unless="composer.exist" description="Installing dependencies">
+    <echo>Installing dependencies</echo>
+    <exec executable="composer" failonerror="true">
+        <arg value="install" />
+    </exec>
+</target>
+       
+    <target name="clean" depends="clean-build,clean-composer" description="Cleanup build and composer artifacts" />
+
+	 <target name="phing">
+        <phingcall target="start"></phingcall>
+        <phingcall target="clean"></phingcall>
+        <phingcall target="structure"></phingcall>
+        <phingcall target="composer"></phingcall>
+        <phingcall target="phpunit"></phingcall>
+        <phingcall target="metrics"></phingcall> 
+        <phingcall target="phpdoc"></phingcall>
+        <phingcall target="copylogs"></phingcall>
+        <phingcall target="makedist"></phingcall>
+        <phingcall target="deploy"></phingcall>  
+    </target>
+	 <!-- ============== -->
+    <!-- = Start Task = -->
+    <!-- ============== -->
+    <target name="start">
+        <echo message=" " />
+        <echo message="----------------------------------------------------------------" />
+        <echo message="   _____             _                                          " />
+        <echo message="  |  __ \           | |                                         " />
+        <echo message="  | |  | | ___ _ __ | | ___  _   _                              " />
+        <echo message="  | |  | |/ _ | '_ \| |/ _ \| | | |                             " />
+        <echo message="  | |__| |  __| |_) | | (_) | |_| |                             " />
+        <echo message="  |_____/ \___| .__/|_|\___/ \__, |                             " />
+        <echo message="              | |             __/ |                             " />
+        <echo message="              |_|            |___/                              " />
+        <echo message="" />
+        <echo message="Inciando processo de deploy... de ${phing.buildfile.dirname}" />
+        <echo message="" />
+        <echo message="----------------------------------------------------------------" />
+        <echo message="" />
+    </target>
+	
+    <!-- ========== -->
+    <!-- = PHPDoc = -->
+    <!-- ========== -->
+    <target name="phpdoc">
+        <echo msg="Generating API docs ..." />
+        <exec command="vendor/bin/phpdoc.php --progressbar --sourcecode -d ${dir-app}" logoutput="true" escape="false" />
+        <exec command="rm -rf docs/api" logoutput="true" escape="false" />
+        <exec command="cp -rf output docs/api" logoutput="true" escape="false" />
+    </target>
+    
+    <!-- ========================== -->
+    <!-- = Make distribution Task = -->
+    <!-- ========================== -->
+    <target name="makedist">
+        <echo msg="Moving files to distribution directory ..." />
+        <copy todir="${dir-build}/dist/${project-name}.${phing.buildfile.dirname}.${build.time}">
+            <fileset dir=".">
+                <exclude name="build/**" />
+                <exclude name="build**" />
+                <exclude name="output/**" />
+                <exclude name="vendor/**" />
+                <exclude name="tests/**" />
+                <exclude name="composer.**" />
+                <exclude name="phpunit.xml" />
+               <!-- <exclude name="docs/**" /> -->
+               <!--  <exclude name="tests/**" /> -->
+                <!-- <exclude name="composer**" /> -->
+              <!-- <exclude name="phpunit**" /> -->
+                <exclude name="phpdoc**" />
+                <include name="**" />
+            </fileset>
+        </copy>
+        <tar destfile="${dir-build}/${project-name}.${phing.buildfile.dirname}.${build.time}.tar.gz" compression="gzip">
+            <fileset dir="${dir-build}/dist">
+                <include name="**" />
+            </fileset>
+        </tar>
+    </target>
+    
+    <!-- ================== -->
+    <!-- = Structure Task = -->
+    <!-- ================== -->
+    <target name="structure">
+        <echo msg="Creating structure ..." />
+        <mkdir dir="${dir-build}" />
+        <mkdir dir="${dir-build}/docs" />
+        <mkdir dir="${dir-logs}" />
+        <mkdir dir="${dir-build}/dist" />
+        <mkdir dir="${dir-tests-logs}" />
+    </target>
+    
+    <target name="clean-build" description="Cleanup build artifacts">
+        <echo>Cleaning out the build artifacts</echo>
+        <delete dir="${basedir}/build/coverage"/>
+        <delete dir="${basedir}/build/logs"/>
+	<delete dir="${basedir}/build/pdepend"/>
+
+        <mkdir dir="${basedir}/build/api"/>
+        <mkdir dir="${basedir}/build/code-browser"/>
+        <mkdir dir="${basedir}/build/coverage"/>
+        <mkdir dir="${basedir}/build/logs"/>
+        <mkdir dir="${basedir}/build/pdepend"/>
+      </target>
+
+    <target name="-dependencies-installed">
+        <available file="${basedir}/composer.lock" property="dependencies-installed"/>
+    </target>
+
+    <target name="install-dependencies" unless="dependencies-installed" depends="-dependencies-installed,validate-composer-json" description="Install dependencies with Composer">
+        <exec executable="${basedir}/tools/composer" taskname="composer">
+            <arg value="update"/>
+            <arg value="--no-interaction"/>
+            <arg value="--no-progress"/>
+            <arg value="--no-ansi"/>
+        </exec>
+    </target>
+
+    <target name="check-dependencies" description="Performs check for outdated dependencies">
+        <exec executable="${basedir}/tools/composer" taskname="composer">
+            <arg value="show"/>
+            <arg value="--minor-only"/>
+            <arg value="--latest"/>
+            <arg value="--direct"/>
+            <arg value="--outdated"/>
+            <arg value="--strict"/>
+        </exec>
+    </target>
+
+ <target name="phploc-ci" depends="prepare" description="Measure project size using PHPLOC and log result in CSV and XML format. Intended for usage within a continuous integration environment.">
+    <exec executable="${toolsdir}phploc">
+        <arg value="--count-tests"/>
+        <arg value="--log-csv"/>
+        <arg path="${basedir}/build/logs/phploc.csv"/>
+        <arg value="--log-xml"/>
+        <arg path="${basedir}/build/logs/phploc.xml"/>
+        <arg path="${basedir}/src"/>
+        <arg path="${basedir}/tests"/>
+     </exec>
+   </target>
+	<target name="bower" description="Installing bower dependencies">
+ 	 <exec executable="bower" failonerror="true">
+  	<arg value="install" />
+ 	</exec>
+	</target>
+	<target name="copy-parameters" description="Copy parameters.yml file">
+ 	 <exec executable="cp" failonerror="true">
+   	<arg path="app/config/parameters.yml.dist" />
+        <arg path="app/config/parameters.yml" />
+  	</exec>
+ 	</target>
+
+    <!--// Check to see it the vendor folder already exist, if so, then no reason to run //-->
+  
+    <target name="lint" description="Perform syntax check of sourcecode files">
+        <apply executable="php" failonerror="true">
+            <arg value="-l" />
+            <fileset dir="${basedir}/app">
+                <include name="**/*.php" />
+                <modified />
+            </fileset>
+        </apply>
+    </target>
+
+    <target name="phpcb" description="Aggregate tool output with PHP_CodeBrowser">
+        <exec executable="phpcb">
+            <arg value="--log" />
+            <arg path="${basedir}/build/logs" />
+            <arg value="--source" />
+            <arg path="${basedir}/app" />
+            <arg value="--output" />
+            <arg path="${basedir}/build/code-browser" />
+        </exec>
+    </target>
+
+    <target name="phpcs"
+         description="Find coding standard violations using PHP_CodeSniffer and print human readable output. Intended for usage on the command line before committing.">
+        <exec executable="phpcs">
+            <arg value="--standard=${basedir}/build/phpcs.xml" />
+            <arg path="${basedir}/app" />
+        </exec>
+    </target>
+
+    <target name="phpdox" description="Generate API documentation using phpDox">
+        <exec executable="phpdox">
+            <arg value="-f" />
+            <arg value="${basedir}/build/phpdox.xml" />
+        </exec>
+    </target>
+
+     <target name="phpmd" description="Perform project mess detection using PHPMD and print human readable output. Intended for usage on the command line before committing.">
+        <exec executable="phpmd">
+            <arg path="${basedir}/app" />
+            <arg value="text" />
+	    <arg path="${basedir}/tests"/>
+            <arg value="${basedir}/build/phpmd.xml" />
+        </exec>
+    </target>
+
+   <target name="storage-permissions" depends="storage-permissions.unix,storage-permissions.windows" description="Setting storage permissions" />
+
+    <target name="storage-permissions.unix" depends="storage.unix.check" if="storage.unix.exist" description="Setting storage permissions on unix">
+        <echo>Setting app/storage to 777</echo>
+        <chmod file="${basedir}/app/storage/**" perm="777" type="dir" failonerror="false" />
+    </target>
+
+    <target name="storage-permissions.windows" depends="storage.windows.check" if="storage.windows.exist" description="Setting storage permissions on windows">
+        <echo>Setting app/storage to writable</echo>
+        <attrib file="${basedir}/app/storage/**" perm="+R" failonerror="true" />
+    </target>
+
+    <target name="storage.unix.check" description="Check for app/storage on unix">
+        <condition property="storage.unix.exist">
+            <and>
+                <available file="${basedir}/app/storage" type="dir" />
+                <os family="unix" />
+            </and>
+        </condition>
+    </target>
+
+    <!--// Check to see it the app/storage folder exist, if so, then can change permissions //-->
+    <target name="storage.windows.check" description="Check for app/storage on windows">
+        <condition property="storage.windows.exist">
+            <and>
+                <available file="${basedir}/app/storage" type="dir" />
+                <os family="windows" />
+            </and>
+        </condition>
+    </target>
+
+     <target name="prepare" depends="clean-build" description="Prepare for build">
+        <echo>Making the build artifact folders</echo>
+        <mkdir dir="${basedir}/build/api" />
+        <mkdir dir="${basedir}/build/code-browser" />
+        <mkdir dir="${basedir}/build/coverage" />
+        <mkdir dir="${basedir}/build/logs" />
+        <mkdir dir="${basedir}/build/pdepend" />
+    </target>
+
+</project>
+
+
+
